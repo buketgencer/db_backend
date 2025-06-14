@@ -1,0 +1,11 @@
+# FastAPI Framework
+fastapi==0.104.1
+
+# ASGI Server
+uvicorn[standard]==0.24.0
+
+# File upload support
+python-multipart==0.0.6
+
+# Data validation and parsing
+pydantic==2.5.0
