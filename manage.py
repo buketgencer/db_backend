@@ -26,14 +26,8 @@ class ProjectManager:
     def __init__(self):
         self.project_root = Path.cwd()
         self.venv_path = self.project_root / ".venv"
-        self.data_dir = self.project_root / "data"
-        self.pdf_dir = self.data_dir / "pdfs"
-        self.questions_file = self.data_dir / "questions.json"
-        self.requirements_file = self.project_root / "requirements.txt"
-        
-        # Configuration
-        self.app_module = "main:app"
-        self.host = "0.0.0.0"
+        self.app_module = "app.main:app"
+        self.host = "127.0.0.1"
         self.port = 8000
 
     def print_colored(self, message, color=Colors.NC):
@@ -113,14 +107,15 @@ class ProjectManager:
 
     def install_dependencies(self, dev=False):
         """Install project dependencies"""
-        if not self.requirements_file.exists():
+        requirements_file = self.project_root / "requirements.txt"
+        if not requirements_file.exists():
             self.print_colored("requirements.txt not found", Colors.RED)
             return False
 
         pip_cmd = self.get_pip_command()
         self.print_colored("Installing dependencies...", Colors.YELLOW)
         
-        result = self.run_command([pip_cmd, "install", "-r", str(self.requirements_file)])
+        result = self.run_command([pip_cmd, "install", "-r", str(requirements_file)])
         if result and result.returncode == 0:
             self.print_colored("Dependencies installed successfully", Colors.GREEN)
             
@@ -136,26 +131,8 @@ class ProjectManager:
             self.print_colored("Failed to install dependencies", Colors.RED)
             return False
 
-    def create_data_directories(self):
-        """Create data directories and initialize files"""
-        self.print_colored("Creating data directories...", Colors.YELLOW)
-        
-        # Create directories
-        self.data_dir.mkdir(exist_ok=True)
-        self.pdf_dir.mkdir(exist_ok=True)
-        
-        # Initialize questions.json if it doesn't exist
-        if not self.questions_file.exists():
-            with open(self.questions_file, 'w', encoding='utf-8') as f:
-                json.dump([], f)
-        
-        self.print_colored("Data directories created successfully", Colors.GREEN)
-        return True
-
     def start_dev_server(self, debug=False):
         """Start development server"""
-        self.create_data_directories()
-        
         python_cmd = self.get_python_command()
         self.print_colored("Starting development server...", Colors.YELLOW)
         self.print_colored(f"Server will be available at http://{self.host}:{self.port}", Colors.GREEN)
@@ -172,8 +149,6 @@ class ProjectManager:
 
     def start_prod_server(self, workers=1):
         """Start production server"""
-        self.create_data_directories()
-        
         python_cmd = self.get_python_command()
         self.print_colored(f"Starting production server with {workers} worker(s)...", Colors.YELLOW)
         
@@ -221,59 +196,6 @@ class ProjectManager:
             if result:
                 print(result.stdout)
 
-    def backup_questions(self):
-        """Backup questions file"""
-        if not self.questions_file.exists():
-            self.print_colored("No questions file found to backup", Colors.RED)
-            return False
-        
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        backup_file = self.data_dir / f"questions_backup_{timestamp}.json"
-        
-        shutil.copy2(self.questions_file, backup_file)
-        self.print_colored(f"Questions backed up to {backup_file.name}", Colors.GREEN)
-        return True
-
-    def list_backups(self):
-        """List available backup files"""
-        backup_files = list(self.data_dir.glob("questions_backup_*.json"))
-        if not backup_files:
-            self.print_colored("No backup files found", Colors.YELLOW)
-            return []
-        
-        self.print_colored("Available backup files:", Colors.BLUE)
-        for i, backup in enumerate(sorted(backup_files), 1):
-            print(f"{i}. {backup.name}")
-        
-        return backup_files
-
-    def restore_questions(self, backup_filename=None):
-        """Restore questions from backup"""
-        if not backup_filename:
-            backups = self.list_backups()
-            if not backups:
-                return False
-            
-            try:
-                choice = int(input("Enter backup number to restore: ")) - 1
-                if 0 <= choice < len(backups):
-                    backup_file = backups[choice]
-                else:
-                    self.print_colored("Invalid choice", Colors.RED)
-                    return False
-            except ValueError:
-                self.print_colored("Invalid input", Colors.RED)
-                return False
-        else:
-            backup_file = self.data_dir / backup_filename
-            if not backup_file.exists():
-                self.print_colored(f"Backup file {backup_filename} not found", Colors.RED)
-                return False
-        
-        shutil.copy2(backup_file, self.questions_file)
-        self.print_colored(f"Questions restored from {backup_file.name}", Colors.GREEN)
-        return True
-
     def clean_temp_files(self):
         """Clean temporary files and cache"""
         self.print_colored("Cleaning temporary files...", Colors.YELLOW)
@@ -309,30 +231,21 @@ class ProjectManager:
         print(f"Virtual Environment: {venv_status}")
         
         # Check requirements
-        req_status = "✓ Found" if self.requirements_file.exists() else "✗ Not found"
+        req_status = "✓ Found" if (self.project_root / "requirements.txt").exists() else "✗ Not found"
         print(f"Requirements file: {req_status}")
         
-        # Check data directories
-        data_status = "✓ Exists" if self.data_dir.exists() else "✗ Not found"
-        print(f"Data directory: {data_status}")
-        
-        # Check questions file
-        if self.questions_file.exists():
-            with open(self.questions_file, 'r', encoding='utf-8') as f:
-                questions = json.load(f)
-            print(f"Questions count: {len(questions)}")
+        # Check app structure
+        app_dir = self.project_root / "app"
+        if app_dir.exists():
+            print("App structure: ✓ Found")
+            print("  - API routes: ✓ Found")
+            print("  - Models: ✓ Found")
+            print("  - Utils: ✓ Found")
         else:
-            print("Questions file: ✗ Not found")
-        
-        # Check PDF files
-        if self.pdf_dir.exists():
-            pdf_files = list(self.pdf_dir.glob("*.pdf"))
-            print(f"PDF files: {len(pdf_files)}")
-        else:
-            print("PDF directory: ✗ Not found")
+            print("App structure: ✗ Not found")
 
     def quick_setup(self):
-        """Quick setup: create venv, install deps, create data dirs"""
+        """Quick setup: create venv, install deps"""
         self.print_header("Quick Setup")
         
         if not self.check_python_version():
@@ -341,7 +254,6 @@ class ProjectManager:
         success = True
         success &= self.create_venv()
         success &= self.install_dependencies()
-        success &= self.create_data_directories()
         
         if success:
             self.print_colored("\n🎉 Quick setup completed successfully!", Colors.GREEN)
@@ -359,11 +271,10 @@ class ProjectManager:
         
         commands = {
             "Setup Commands": {
-                "setup": "Quick setup (create venv, install deps, create data dirs)",
+                "setup": "Quick setup (create venv, install deps)",
                 "venv": "Create virtual environment",
                 "install": "Install dependencies",
                 "install-dev": "Install dependencies with dev packages",
-                "data-dir": "Create data directories",
             },
             "Development Commands": {
                 "dev": "Start development server with auto-reload",
@@ -376,11 +287,6 @@ class ProjectManager:
                 "format": "Format code with black",
                 "lint": "Run code linting",
                 "clean": "Clean temporary files and cache",
-            },
-            "Data Management": {
-                "backup": "Backup questions to timestamped file",
-                "restore": "Restore questions from backup",
-                "list-backups": "List available backup files",
             },
             "Utilities": {
                 "status": "Show project status",
@@ -407,7 +313,6 @@ def main():
         "venv": manager.create_venv,
         "install": lambda: manager.install_dependencies(dev=False),
         "install-dev": lambda: manager.install_dependencies(dev=True),
-        "data-dir": manager.create_data_directories,
         "dev": lambda: manager.start_dev_server(debug=False),
         "dev-debug": lambda: manager.start_dev_server(debug=True),
         "prod": lambda: manager.start_prod_server(workers=1),
@@ -416,9 +321,6 @@ def main():
         "format": manager.format_code,
         "lint": manager.lint_code,
         "clean": manager.clean_temp_files,
-        "backup": manager.backup_questions,
-        "restore": manager.restore_questions,
-        "list-backups": manager.list_backups,
         "status": manager.show_status,
         "help": manager.show_help,
     }
