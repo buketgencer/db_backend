@@ -59,9 +59,17 @@ logs/
 *.sqlite3
 *.db
 
-# Data directory (if it contains sensitive data)
-data/*
-!data/.gitkeep
+# Data directory
+/data/
+/data/*
+!/data/.gitkeep
+/data/**/*
+!/data/.gitkeep
+/data/pdfs/
+/data/pdfs/*
+!/data/pdfs/.gitkeep
+/data/*.json
+*.pdf
 
 # Distribution / packaging
 .Python
