@@ -8,25 +8,27 @@ from app.utils.file_utils import get_pdf_files, validate_pdf_filename
 
 router = APIRouter()
 
+
 @router.get("/pdfs", response_model=PDFListResponse)
 def list_pdfs():
     """Get list of all uploaded PDF files"""
     files = get_pdf_files()
     return PDFListResponse(pdf_files=files, count=len(files))
 
+
 @router.post("/upload-pdf", response_model=PDFUploadResponse)
 async def upload_pdf(file: UploadFile = File(...)):
     """Upload a PDF file using original filename, prevent duplicates"""
     original_filename = validate_pdf_filename(file.filename)
-    
+
     try:
         file_path = os.path.join(PDF_DIR, original_filename)
-        
+
         # Check if file already exists
         if os.path.exists(file_path):
             raise HTTPException(
-                status_code=409, 
-                detail=f"File '{original_filename}' already exists. Please rename the file or delete the existing one."
+                status_code=409,
+                detail=f"File '{original_filename}' already exists. Please rename the file or delete the existing one.",
             )
 
         contents = await file.read()
@@ -34,13 +36,14 @@ async def upload_pdf(file: UploadFile = File(...)):
             f.write(contents)
 
         return PDFUploadResponse(
-            filename=original_filename, 
-            message=f"PDF '{original_filename}' uploaded successfully"
+            filename=original_filename,
+            message=f"PDF '{original_filename}' uploaded successfully",
         )
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error uploading file: {str(e)}")
+
 
 @router.get("/pdf/{filename}")
 def get_pdf(filename: str):
@@ -48,8 +51,26 @@ def get_pdf(filename: str):
     # Security: Prevent path traversal
     if ".." in filename or "/" in filename or "\\" in filename:
         raise HTTPException(status_code=400, detail="Invalid filename")
-    
+
     file_path = os.path.join(PDF_DIR, filename)
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="PDF not found.")
-    return FileResponse(file_path, media_type="application/pdf") 
+    return FileResponse(file_path, media_type="application/pdf")
+
+
+@router.delete("/pdf/{filename}")
+def delete_pdf(filename: str):
+    """Delete a specific PDF file"""
+    # Security: Prevent path traversal
+    if ".." in filename or "/" in filename or "\\" in filename:
+        raise HTTPException(status_code=400, detail="Invalid filename")
+
+    file_path = os.path.join(PDF_DIR, filename)
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="PDF not found.")
+
+    try:
+        os.remove(file_path)
+        return {"message": f"PDF '{filename}' deleted successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error deleting file: {str(e)}")
