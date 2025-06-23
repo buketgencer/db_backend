@@ -17,7 +17,7 @@ API_PORT = 8000
 # External Service Configuration
 EXTERNAL_SERVICE_URL = os.getenv("EXTERNAL_SERVICE_URL", "http://localhost:8001/v1")
 EXTERNAL_SERVICE_TIMEOUT = float(
-    os.getenv("EXTERNAL_SERVICE_TIMEOUT", "30.0")
+    os.getenv("EXTERNAL_SERVICE_TIMEOUT", "30000.0")
 )  # Timeout in seconds
 
 # CORS Configuration

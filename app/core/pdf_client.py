@@ -3,7 +3,7 @@ import json
 from typing import List, Optional, Union
 from pathlib import Path
 import asyncio
-from app.models.schemas import QuestionRequest, ProcessResponse
+from app.models.schemas import QuestionRequest, ProcessResponse, PreProcessResponse
 from app.core.config import EXTERNAL_SERVICE_URL, EXTERNAL_SERVICE_TIMEOUT
 
 
@@ -12,7 +12,8 @@ class PDFProcessorClient:
 
     def __init__(self, base_url: str = EXTERNAL_SERVICE_URL):
         self.base_url = base_url.rstrip("/")
-        self.endpoint = f"{self.base_url}/process"
+        self.process_endpoint = f"{self.base_url}/process"
+        self.preprocess_endpoint = f"{self.base_url}/preprocess-pdf"
 
     async def process_pdf_async(
         self,
@@ -51,7 +52,7 @@ class PDFProcessorClient:
             data = {"questions": questions_json}
 
             try:
-                response = await client.post(self.endpoint, files=files, data=data)
+                response = await client.post(self.process_endpoint, files=files, data=data)
                 response.raise_for_status()
 
                 # Parse and return the response
@@ -65,6 +66,43 @@ class PDFProcessorClient:
             finally:
                 # Close the file
                 files["pdf_file"][1].close()
+
+    async def preprocess_pdf_async(
+        self,
+        *,
+        file_name: str,
+        file_bytes: bytes,
+        timeout: float = EXTERNAL_SERVICE_TIMEOUT,
+    ) -> PreProcessResponse:
+        """
+        Asynchronously send a PDF file (as bytes) to the external
+        preprocessing service.
+
+        Args:
+            file_name: Original filename to preserve in form-data.
+            file_bytes: Raw bytes of the PDF.
+            timeout: Request timeout in seconds.
+
+        Returns:
+            PreProcessResponse instance parsed from JSON.
+
+        Raises:
+            httpx.HTTPError: If the HTTP request fails or returns a ≥400 code.
+        """
+        files = {
+            "pdf_file": (file_name, file_bytes, "application/pdf")
+        }
+
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            try:
+                response = await client.post(self.preprocess_endpoint, files=files)
+                response.raise_for_status()
+                return PreProcessResponse(**response.json())
+
+            except httpx.HTTPStatusError as exc:
+                raise httpx.HTTPError(
+                    f"HTTP {exc.response.status_code}: {exc.response.text}"
+                ) from exc
 
 
 # Convenience functions for direct usage

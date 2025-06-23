@@ -2,9 +2,12 @@ from fastapi import APIRouter, UploadFile, File, HTTPException
 from fastapi.responses import FileResponse
 import os
 import uuid
-from app.core.config import PDF_DIR
+from app.core.config import PDF_DIR,  EXTERNAL_SERVICE_URL
 from app.models.schemas import PDFListResponse, PDFUploadResponse
-from app.utils.file_utils import get_pdf_files, validate_pdf_filename
+from app.utils.file_utils import get_pdf_files, validate_pdf_filename, get_pdf_file
+from app.core.pdf_client import PDFProcessorClient
+import httpx
+
 
 router = APIRouter()
 
@@ -16,34 +19,56 @@ def list_pdfs():
     return PDFListResponse(pdf_files=files, count=len(files))
 
 
+# routes.py (veya benzeri FastAPI modülü)
+
 @router.post("/upload-pdf", response_model=PDFUploadResponse)
 async def upload_pdf(file: UploadFile = File(...)):
-    """Upload a PDF file using original filename, prevent duplicates"""
+    """
+    Upload a PDF file using the original filename, prevent duplicates,
+    store it on disk, and immediately forward the content to the
+    external preprocessing service.
+    """
     original_filename = validate_pdf_filename(file.filename)
+    file_path = os.path.join(PDF_DIR, original_filename)
+
+    # Çakışma kontrolü
+    if os.path.exists(file_path):
+        raise HTTPException(
+            status_code=409,
+            detail=f"File '{original_filename}' already exists. "
+                   "Please rename the file or delete the existing one.",
+        )
 
     try:
-        file_path = os.path.join(PDF_DIR, original_filename)
+        # Dosyayı sadece *bir kez* oku
+        file_bytes = await file.read()
 
-        # Check if file already exists
-        if os.path.exists(file_path):
-            raise HTTPException(
-                status_code=409,
-                detail=f"File '{original_filename}' already exists. Please rename the file or delete the existing one.",
-            )
-
-        contents = await file.read()
+        # Diske kaydet
         with open(file_path, "wb") as f:
-            f.write(contents)
+            f.write(file_bytes)
+
+        # Haricî servise ilet
+        client = PDFProcessorClient(base_url=EXTERNAL_SERVICE_URL)
+        await client.preprocess_pdf_async(
+            file_name=original_filename,
+            file_bytes=file_bytes,
+        )
 
         return PDFUploadResponse(
             filename=original_filename,
             message=f"PDF '{original_filename}' uploaded successfully",
         )
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error uploading file: {str(e)}")
 
+    except httpx.HTTPError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"External service error: {str(exc)}"
+        ) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error uploading file: {str(exc)}"
+        ) from exc
 
 @router.get("/pdf/{filename}")
 def get_pdf(filename: str):
@@ -74,3 +99,4 @@ def delete_pdf(filename: str):
         return {"message": f"PDF '{filename}' deleted successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error deleting file: {str(e)}")
+

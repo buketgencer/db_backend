@@ -81,3 +81,10 @@ class ProcessResponse(BaseModel):
 
     results: List[ProcessResult] = Field(..., description="List of processed results")
     count: int = Field(..., description="Number of results")
+
+class PreProcessResponse(BaseModel):
+    """Schema for pre-process response"""
+
+    status: Literal["completed", "failed"]
+
+# todo : delete response objesi oluşturuulur preprocessresponse ile aynı olabilir.
