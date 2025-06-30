@@ -85,6 +85,7 @@ def get_pdf(filename: str):
 
 @router.delete("/pdf/{filename}")
 def delete_pdf(filename: str):
+    # upload pdf teki gibi pdf._client.pyda todo diye arat orda delete yazılacak burdan çağrılacak
     """Delete a specific PDF file"""
     # Security: Prevent path traversal
     if ".." in filename or "/" in filename or "\\" in filename:

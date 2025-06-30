@@ -88,3 +88,7 @@ class PreProcessResponse(BaseModel):
     status: Literal["completed", "failed"]
 
 # todo : delete response objesi oluşturuulur preprocessresponse ile aynı olabilir.
+class DeleteResponse(BaseModel):
+    """Schema for delete response"""
+
+    status: Literal["completed", "failed"]

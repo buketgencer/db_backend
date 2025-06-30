@@ -86,7 +86,7 @@ The project uses environment variables for configuration. Create a `.env` file i
 API_HOST=localhost
 API_PORT=8000
 EXTERNAL_SERVICE_URL=<your-external-service-url>
-EXTERNAL_SERVICE_TIMEOUT=30
+EXTERNAL_SERVICE_TIMEOUT=3000000
 ```
 
 ## Development
